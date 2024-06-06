@@ -2502,7 +2502,7 @@ var LibraryWebGPU = {
       {{{ runtimeKeepalivePop() }}}
       callUserCallback(() => {
         if (adapter) {
-          var adapterWrapper = { infoPtrs: {} };
+          var adapterWrapper = { infoPtrs: {}, propertiesPtrs: {} };
           var adapterId = WebGPU.mgrAdapter.create(adapter, adapterWrapper);
           {{{ makeDynCall('vippp', 'callback') }}}({{{ gpu.RequestAdapterStatus.Success }}}, adapterId, 0, userdata);
         } else {
@@ -2572,15 +2572,36 @@ var LibraryWebGPU = {
   },
 
   wgpuAdapterGetProperties: (adapterId, properties) => {
+    var adapter = WebGPU.mgrAdapter.get(adapterId);
     {{{ gpu.makeCheckDescriptor('properties') }}}
+
+    function allocateUTF8String(stringPtr, stringValue) {
+      var stringSize = lengthBytesUTF8(stringValue) + 1;
+      if (!stringPtr) {
+        stringPtr = _malloc(stringSize);
+      } else {
+        _realloc(stringPtr, stringSize)
+      }
+      stringToUTF8(stringValue, stringPtr, stringSize);
+      return stringPtr;
+    }
+
+    var adapterWrapper = WebGPU.mgrAdapter.objects[adapterId];
+    {{{ gpu.makeCheckDefined('adapterWrapper') }}}
     {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.vendorID, '0', 'i32') }}};
-    {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.vendorName, '0', 'i32') }}};
-    {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.architecture, '0', 'i32') }}};
+    adapterWrapper.propertiesPtrs.vendorName = allocateUTF8String(adapterWrapper.propertiesPtrs.vendorName, adapter.info.vendor);
+    {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.vendorName, 'adapterWrapper.propertiesPtrs.vendorName', '*') }}};
+    adapterWrapper.propertiesPtrs.architecture = allocateUTF8String(adapterWrapper.propertiesPtrs.architecture, adapter.info.architecture);
+    {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.architecture, 'adapterWrapper.propertiesPtrs.architecture', '*') }}};
     {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.deviceID, '0', 'i32') }}};
-    {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.name, '0', 'i32') }}};
-    {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.driverDescription, '0', 'i32') }}};
-    {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.adapterType, gpu.AdapterType.Unknown, 'i32') }}};
+    adapterWrapper.propertiesPtrs.name = allocateUTF8String(adapterWrapper.propertiesPtrs.name, adapter.info.device);
+    {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.name, 'adapterWrapper.propertiesPtrs.name', '*') }}};
+    adapterWrapper.propertiesPtrs.driverDescription = allocateUTF8String(adapterWrapper.propertiesPtrs.driverDescription, adapter.info.description);
+    {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.driverDescription, 'adapterWrapper.propertiesPtrs.driverDescription', '*') }}};
+    var adapterType = adapter.isFallbackAdapter ? {{{ gpu.AdapterType.CPU }}} : {{{ gpu.AdapterType.Unknown }}};
+    {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.adapterType, 'adapterType', 'i32') }}};
     {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.backendType, gpu.BackendType.WebGPU, 'i32') }}};
+    // TODO: Add support for compatibility mode.
     {{{ makeSetValue('properties', C_STRUCTS.WGPUAdapterProperties.compatibilityMode, '0', 'i32') }}};
   },
 
@@ -2702,12 +2723,6 @@ var LibraryWebGPU = {
         stackRestore(sp);
       });
     });
-  },
-
-  // WGPUAdapterProperties
-
-  wgpuAdapterPropertiesFreeMembers: (value) => {
-    // wgpuAdapterGetProperties doesn't currently allocate anything.
   },
 
   // WGPUSampler

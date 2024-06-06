@@ -90,3 +90,12 @@ void wgpuAdapterInfoFreeMembers(WGPUAdapterInfo value) {
   delete[] value.device;
   delete[] value.description;
 }
+
+// WGPUAdapterProperties
+
+void wgpuAdapterPropertiesFreeMembers(WGPUAdapterProperties value) {
+  delete[] value.vendorName;
+  delete[] value.architecture;
+  delete[] value.name;
+  delete[] value.driverDescription;
+}
